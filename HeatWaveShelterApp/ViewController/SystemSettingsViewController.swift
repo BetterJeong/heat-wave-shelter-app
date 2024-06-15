@@ -20,7 +20,7 @@ class SystemSettingsViewController: UIViewController, UITableViewDelegate, UITab
     
     private let favoritesLabel: UILabel = {
         let label = UILabel()
-        label.text = "즐겨찾기한 쉼터 보기"
+        label.text = "즐겨찾기한 쉼터"
         label.font = UIFont.systemFont(ofSize: 18, weight: .bold)
         return label
     }()
