@@ -104,7 +104,7 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -100),
-            collectionView.heightAnchor.constraint(equalToConstant: 100) // 컬렉션 뷰 높이 조정
+            collectionView.heightAnchor.constraint(equalToConstant: 100)
         ])
     }
     
@@ -166,6 +166,10 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         mapView.addAnnotation(annotation)
         
         self.addressButton.setTitle(name, for: .normal)
+    }
+    
+    func didSelectFavoriteShelter(_ shelter: Shelter) {
+        geocodeAndAddAnnotation(address: shelter.address, title: shelter.title)
     }
     
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
