@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		F301972F2C1C430500AA1A3A /* KeySet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F301972E2C1C430500AA1A3A /* KeySet.swift */; };
+		F30197352C1EE50100AA1A3A /* shelter_seoul.csv in Resources */ = {isa = PBXBuildFile; fileRef = F30197342C1EE50100AA1A3A /* shelter_seoul.csv */; };
+		F30197382C1EEA7100AA1A3A /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = F30197372C1EEA7100AA1A3A /* SwiftCSV */; };
+		F301973B2C1EF3D400AA1A3A /* Shelter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F301973A2C1EF3D400AA1A3A /* Shelter.swift */; };
 		F302EB592C1054220062CC5A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F302EB582C1054220062CC5A /* AppDelegate.swift */; };
 		F302EB5B2C1054220062CC5A /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F302EB5A2C1054220062CC5A /* SceneDelegate.swift */; };
 		F302EB5D2C1054220062CC5A /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F302EB5C2C1054220062CC5A /* ViewController.swift */; };
@@ -22,6 +25,8 @@
 
 /* Begin PBXFileReference section */
 		F301972E2C1C430500AA1A3A /* KeySet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeySet.swift; sourceTree = "<group>"; };
+		F30197342C1EE50100AA1A3A /* shelter_seoul.csv */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = shelter_seoul.csv; sourceTree = "<group>"; };
+		F301973A2C1EF3D400AA1A3A /* Shelter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shelter.swift; sourceTree = "<group>"; };
 		F302EB552C1054220062CC5A /* HeatWaveShelterApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HeatWaveShelterApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F302EB582C1054220062CC5A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F302EB5A2C1054220062CC5A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -41,12 +46,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F30197382C1EEA7100AA1A3A /* SwiftCSV in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F30197392C1EF3C500AA1A3A /* Struct */ = {
+			isa = PBXGroup;
+			children = (
+				F301973A2C1EF3D400AA1A3A /* Shelter.swift */,
+			);
+			path = Struct;
+			sourceTree = "<group>";
+		};
 		F302EB4C2C1054220062CC5A = {
 			isa = PBXGroup;
 			children = (
@@ -66,6 +80,7 @@
 		F302EB572C1054220062CC5A /* HeatWaveShelterApp */ = {
 			isa = PBXGroup;
 			children = (
+				F30197392C1EF3C500AA1A3A /* Struct */,
 				F39CE70E2C1873C6002C7A5D /* ViewController */,
 				F302EB582C1054220062CC5A /* AppDelegate.swift */,
 				F302EB5A2C1054220062CC5A /* SceneDelegate.swift */,
@@ -74,6 +89,7 @@
 				F302EB632C1054240062CC5A /* LaunchScreen.storyboard */,
 				F302EB662C1054240062CC5A /* Info.plist */,
 				F301972E2C1C430500AA1A3A /* KeySet.swift */,
+				F30197342C1EE50100AA1A3A /* shelter_seoul.csv */,
 			);
 			path = HeatWaveShelterApp;
 			sourceTree = "<group>";
@@ -106,6 +122,9 @@
 			dependencies = (
 			);
 			name = HeatWaveShelterApp;
+			packageProductDependencies = (
+				F30197372C1EEA7100AA1A3A /* SwiftCSV */,
+			);
 			productName = HeatWaveShelterApp;
 			productReference = F302EB552C1054220062CC5A /* HeatWaveShelterApp.app */;
 			productType = "com.apple.product-type.application";
@@ -134,6 +153,9 @@
 				Base,
 			);
 			mainGroup = F302EB4C2C1054220062CC5A;
+			packageReferences = (
+				F30197362C1EEA7100AA1A3A /* XCRemoteSwiftPackageReference "SwiftCSV" */,
+			);
 			productRefGroup = F302EB562C1054220062CC5A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -149,6 +171,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F302EB622C1054240062CC5A /* Assets.xcassets in Resources */,
+				F30197352C1EE50100AA1A3A /* shelter_seoul.csv in Resources */,
 				F302EB652C1054240062CC5A /* Base in Resources */,
 				F302EB602C1054220062CC5A /* Base in Resources */,
 			);
@@ -168,6 +191,7 @@
 				F301972F2C1C430500AA1A3A /* KeySet.swift in Sources */,
 				F39CE7072C187240002C7A5D /* WeatherViewController.swift in Sources */,
 				F302EB592C1054220062CC5A /* AppDelegate.swift in Sources */,
+				F301973B2C1EF3D400AA1A3A /* Shelter.swift in Sources */,
 				F302EB5B2C1054220062CC5A /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -389,6 +413,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F30197362C1EEA7100AA1A3A /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftcsv/SwiftCSV";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F30197372C1EEA7100AA1A3A /* SwiftCSV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F30197362C1EEA7100AA1A3A /* XCRemoteSwiftPackageReference "SwiftCSV" */;
+			productName = SwiftCSV;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F302EB4D2C1054220062CC5A /* Project object */;
 }

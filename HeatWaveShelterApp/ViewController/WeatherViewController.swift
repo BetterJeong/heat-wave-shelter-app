@@ -1,11 +1,63 @@
 import UIKit
 
+struct CurrentWeatherResponse: Codable {
+    let main: MainWeather
+    let weather: [WeatherDetail]
+    let name: String
+}
+
+struct ForecastWeatherResponse: Codable {
+    let list: [Forecast]
+    let city: City
+}
+
+struct MainWeather: Codable {
+    let temp: Double
+}
+
+struct WeatherDetail: Codable {
+    let description: String
+    let icon: String
+}
+
+struct Forecast: Codable {
+    let dt: Int
+    let main: MainWeather
+    let weather: [WeatherDetail]
+    let dt_txt: String
+}
+
+struct City: Codable {
+    let name: String
+}
+
+struct SpecialWeatherWarningResponse: Codable {
+    let response: SpecialWeatherWarningBody
+}
+
+struct SpecialWeatherWarningBody: Codable {
+    let body: SpecialWeatherWarningItems
+}
+
+struct SpecialWeatherWarningItems: Codable {
+    let items: [SpecialWeatherWarningItem]
+}
+
+struct SpecialWeatherWarningItem: Codable {
+    let title: String
+    let tmFc: String
+}
+
 class WeatherViewController: UIViewController {
 
     private let temperatureLabel = UILabel()
     private let locationLabel = UILabel()
     private let hourlyForecastView = UIView()
     private let weeklyForecastView = UIView()
+    private let alertLabel = UILabel()
+    
+    private let openWeatherKey = KeySet.openWeatherKey.rawValue
+    private let specialWeatherWarningKey = KeySet.publicKey.rawValue
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -13,24 +65,28 @@ class WeatherViewController: UIViewController {
         title = "Weather"
         
         setupViewsAndLayout()
-        updateHourlyForecast()
-        updateWeeklyForecast()
+        fetchCurrentWeather()
+        fetchForecastWeather()
+        fetchSpecialWeatherWarnings()
     }
     
     private func setupViewsAndLayout() {
-        // Temperature Label
+        alertLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        alertLabel.textColor = .red
+        alertLabel.textAlignment = .center
+        alertLabel.numberOfLines = 0
+        alertLabel.backgroundColor = .yellow.withAlphaComponent(0.8)
+        alertLabel.layer.cornerRadius = 5
+        alertLabel.layer.masksToBounds = true
+        
         temperatureLabel.font = UIFont.systemFont(ofSize: 64, weight: .bold)
         temperatureLabel.textColor = .black
         temperatureLabel.textAlignment = .center
-        temperatureLabel.text = "25°C"
         
-        // Location Label
         locationLabel.font = UIFont.systemFont(ofSize: 24, weight: .medium)
         locationLabel.textColor = .gray
         locationLabel.textAlignment = .center
-        locationLabel.text = "Seoul, South Korea"
         
-        // Hourly Forecast View
         hourlyForecastView.backgroundColor = .white
         hourlyForecastView.layer.cornerRadius = 10
         hourlyForecastView.layer.shadowColor = UIColor.black.cgColor
@@ -38,7 +94,6 @@ class WeatherViewController: UIViewController {
         hourlyForecastView.layer.shadowOffset = CGSize(width: 0, height: 1)
         hourlyForecastView.layer.shadowRadius = 10
         
-        // Weekly Forecast View
         weeklyForecastView.backgroundColor = .white
         weeklyForecastView.layer.cornerRadius = 10
         weeklyForecastView.layer.shadowColor = UIColor.black.cgColor
@@ -46,7 +101,7 @@ class WeatherViewController: UIViewController {
         weeklyForecastView.layer.shadowOffset = CGSize(width: 0, height: 1)
         weeklyForecastView.layer.shadowRadius = 10
         
-        // Add subviews
+        view.addSubview(alertLabel)
         view.addSubview(hourlyForecastView)
         view.addSubview(weeklyForecastView)
         
@@ -57,14 +112,20 @@ class WeatherViewController: UIViewController {
         view.addSubview(stackView)
         
         stackView.translatesAutoresizingMaskIntoConstraints = false
+        alertLabel.translatesAutoresizingMaskIntoConstraints = false
         hourlyForecastView.translatesAutoresizingMaskIntoConstraints = false
         weeklyForecastView.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 80),
+            alertLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            alertLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            alertLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            alertLabel.heightAnchor.constraint(equalToConstant: 40),
+            
+            stackView.topAnchor.constraint(equalTo: alertLabel.bottomAnchor, constant: 60),
             stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             
-            hourlyForecastView.topAnchor.constraint(equalTo: stackView.bottomAnchor, constant: 60),
+            hourlyForecastView.topAnchor.constraint(equalTo: stackView.bottomAnchor, constant: 80),
             hourlyForecastView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             hourlyForecastView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             hourlyForecastView.heightAnchor.constraint(equalToConstant: 100),
@@ -74,30 +135,166 @@ class WeatherViewController: UIViewController {
             weeklyForecastView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             weeklyForecastView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20)
         ])
+    }
+    
+    private func fetchCurrentWeather() {
+        print("Starting network request for current weather...")
+        let urlString = "https://api.openweathermap.org/data/2.5/weather?lat=37.5665&lon=126.9780&units=metric&appid=\(openWeatherKey)"
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL")
+            return
+        }
         
-        // Add sample data to hourly forecast view
-        let hourlyStackView = createHourlyForecastStackView()
-        hourlyForecastView.addSubview(hourlyStackView)
-        hourlyStackView.translatesAutoresizingMaskIntoConstraints = false
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                print("Network request failed: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                print("No data returned")
+                return
+            }
+            
+            do {
+                print("Data received, attempting to decode JSON...")
+                let weatherResponse = try JSONDecoder().decode(CurrentWeatherResponse.self, from: data)
+                print("JSON decoding successful")
+                print("Current weather response: \(weatherResponse)")
+                DispatchQueue.main.async {
+                    self.updateCurrentWeatherUI(with: weatherResponse)
+                }
+            } catch {
+                print("JSON decoding error: \(error.localizedDescription)")
+            }
+        }
         
-        NSLayoutConstraint.activate([
-            hourlyStackView.topAnchor.constraint(equalTo: hourlyForecastView.topAnchor, constant: 10),
-            hourlyStackView.leadingAnchor.constraint(equalTo: hourlyForecastView.leadingAnchor, constant: 10),
-            hourlyStackView.trailingAnchor.constraint(equalTo: hourlyForecastView.trailingAnchor, constant: -10),
-            hourlyStackView.bottomAnchor.constraint(equalTo: hourlyForecastView.bottomAnchor, constant: -10)
-        ])
+        task.resume()
+    }
+    
+    private func fetchForecastWeather() {
+        print("Starting network request for forecast weather...")
+        let urlString = "https://api.openweathermap.org/data/2.5/forecast?lat=37.5665&lon=126.9780&units=metric&appid=\(openWeatherKey)"
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL")
+            return
+        }
         
-        // Add sample data to weekly forecast view
-        let weeklyStackView = createWeeklyForecastStackView()
-        weeklyForecastView.addSubview(weeklyStackView)
-        weeklyStackView.translatesAutoresizingMaskIntoConstraints = false
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                print("Network request failed: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                print("No data returned")
+                return
+            }
+            
+            do {
+                print("Data received, attempting to decode JSON...")
+                let weatherResponse = try JSONDecoder().decode(ForecastWeatherResponse.self, from: data)
+                print("JSON decoding successful")
+                print("Forecast weather response: \(weatherResponse)")
+                DispatchQueue.main.async {
+                    self.updateForecastWeatherUI(with: weatherResponse)
+                }
+            } catch {
+                print("JSON decoding error: \(error.localizedDescription)")
+            }
+        }
         
-        NSLayoutConstraint.activate([
-            weeklyStackView.topAnchor.constraint(equalTo: weeklyForecastView.topAnchor, constant: 10),
-            weeklyStackView.leadingAnchor.constraint(equalTo: weeklyForecastView.leadingAnchor, constant: 10),
-            weeklyStackView.trailingAnchor.constraint(equalTo: weeklyForecastView.trailingAnchor, constant: -10),
-            weeklyStackView.bottomAnchor.constraint(equalTo: weeklyForecastView.bottomAnchor, constant: -10)
-        ])
+        task.resume()
+    }
+    
+    private func fetchSpecialWeatherWarnings() {
+        print("Starting network request for special weather warnings...")
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd"
+        
+        let calendar = Calendar.current
+        let toDate = Date()
+        let fromDate = calendar.date(byAdding: .day, value: -3, to: toDate)!
+        
+        let fromTmFc = dateFormatter.string(from: fromDate)
+        let toTmFc = dateFormatter.string(from: toDate)
+        
+        let urlString = "http://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnList?serviceKey=\(specialWeatherWarningKey)&numOfRows=10&pageNo=1&stnId=108&fromTmFc=\(fromTmFc)&toTmFc=\(toTmFc)"
+        
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL")
+            return
+        }
+        
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                print("Network request failed: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                print("No data returned")
+                return
+            }
+            
+            do {
+                print("Data received, attempting to decode XML...")
+                let parser = XMLParser(data: data)
+                let xmlDelegate = SpecialWeatherWarningParserDelegate()
+                parser.delegate = xmlDelegate
+                
+                if parser.parse() {
+                    let warnings = xmlDelegate.warnings
+                    print("XML parsing successful")
+                    DispatchQueue.main.async {
+                        self.updateAlertLabel(with: warnings)
+                    }
+                } else {
+                    print("XML parsing failed")
+                }
+            } catch {
+                print("XML parsing error: \(error.localizedDescription)")
+            }
+        }
+        
+        task.resume()
+    }
+    
+    private func updateCurrentWeatherUI(with weatherResponse: CurrentWeatherResponse) {
+        print("Updating UI with current weather data...")
+        temperatureLabel.text = "\(Int(weatherResponse.main.temp))°C"
+        locationLabel.text = weatherResponse.name
+    }
+    
+    private func updateForecastWeatherUI(with weatherResponse: ForecastWeatherResponse) {
+        print("Updating UI with forecast weather data...")
+        
+        updateHourlyForecast(with: weatherResponse.list)
+        
+        updateWeeklyForecast(with: weatherResponse.list)
+    }
+    
+    private func updateAlertLabel(with warnings: [SpecialWeatherWarningItem]) {
+        if warnings.isEmpty {
+            alertLabel.text = "현재 특보가 없습니다."
+        } else {
+            let warningMessages = warnings.map { warning -> String in
+                let titleComponents = warning.title.split(separator: "/")
+                let title = titleComponents.last?.replacingOccurrences(of: "(*)", with: "").trimmingCharacters(in: .whitespaces) ?? ""
+                let dateTime = formatDateString(warning.tmFc)
+                return "[특보] \(title) (\(dateTime))"
+            }
+            alertLabel.text = warningMessages.joined(separator: "\n")
+        }
+    }
+    
+    private func formatDateString(_ dateString: String) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMddHHmm"
+        guard let date = dateFormatter.date(from: dateString) else { return dateString }
+        dateFormatter.dateFormat = "yyyy.MM.dd HH:mm"
+        return dateFormatter.string(from: date)
     }
     
     private func createHourlyForecastStackView() -> UIStackView {
@@ -107,7 +304,6 @@ class WeatherViewController: UIViewController {
         stackView.distribution = .equalSpacing
         stackView.spacing = 10
         
-        // 샘플 데이터를 시간대별 예보 뷰에 추가
         return stackView
     }
     
@@ -147,22 +343,55 @@ class WeatherViewController: UIViewController {
         return view
     }
     
+    private func updateHourlyForecast(with hourlyWeather: [Forecast]) {
+        print("Updating hourly forecast...")
+        let stackView = createHourlyForecastStackView()
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "ha"
+        
+        let currentDate = Date()
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: currentDate)
+        let nearestHour = (currentHour / 3) * 3
+        
+        let nearestHourIndex = hourlyWeather.firstIndex { forecast in
+            let forecastDate = Date(timeIntervalSince1970: TimeInterval(forecast.dt))
+            let forecastHour = calendar.component(.hour, from: forecastDate)
+            return forecastHour == nearestHour
+        } ?? 0
+        
+        let start = max(0, nearestHourIndex)
+        let end = min(hourlyWeather.count, start + 6)
+        
+        for hourOffset in start..<end {
+            let weather = hourlyWeather[hourOffset]
+            let date = Date(timeIntervalSince1970: TimeInterval(weather.dt))
+            let time = dateFormatter.string(from: date)
+            
+            print("Hour \(hourOffset): \(time) - \(weather.main.temp)°C - Icon: \(weather.weather.first?.icon ?? "N/A")")
+            
+            let view = createHourlyForecastView(time: time, iconName: getWeatherIconName(for: weather.weather.first?.icon ?? "cloud.fill"), temperature: "\(Int(weather.main.temp))°C", isFirst: hourOffset == start)
+            stackView.addArrangedSubview(view)
+        }
+        
+        hourlyForecastView.addSubview(stackView)
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: hourlyForecastView.topAnchor, constant: 10),
+            stackView.leadingAnchor.constraint(equalTo: hourlyForecastView.leadingAnchor, constant: 10),
+            stackView.trailingAnchor.constraint(equalTo: hourlyForecastView.trailingAnchor, constant: -10),
+            stackView.bottomAnchor.constraint(equalTo: hourlyForecastView.bottomAnchor, constant: -10)
+        ])
+    }
+    
     private func createWeeklyForecastStackView() -> UIStackView {
         let stackView = UIStackView()
         stackView.axis = .vertical
         stackView.alignment = .fill
         stackView.distribution = .equalSpacing
         stackView.spacing = 10
-        
-        // Sample data for weekly forecast
-        let days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-        let icons = ["cloud.sun.fill", "cloud.fill", "cloud.rain.fill", "cloud.bolt.fill", "sun.max.fill", "cloud.sun.fill", "cloud.drizzle.fill"]
-        let temperatures = ["26°C / 18°C", "25°C / 17°C", "24°C / 16°C", "23°C / 15°C", "28°C / 20°C", "27°C / 19°C", "26°C / 18°C"]
-        
-        for (index, day) in days.enumerated() {
-            let view = createWeeklyForecastView(day: day, iconName: icons[index], temperature: temperatures[index], isToday: isToday(day))
-            stackView.addArrangedSubview(view)
-        }
         
         return stackView
     }
@@ -213,39 +442,27 @@ class WeatherViewController: UIViewController {
         return view
     }
     
-    private func updateHourlyForecast() {
-        let stackView = createHourlyForecastStackView()
+    private func updateWeeklyForecast(with dailyWeather: [Forecast]) {
+        print("Updating weekly forecast...")
+        let weeklyStackView = createWeeklyForecastStackView()
         
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "ha"
-        let calendar = Calendar.current
-        let currentHour = calendar.component(.hour, from: Date())
+        dateFormatter.dateFormat = "EEEE"
         
-        let icons = ["sun.max.fill", "cloud.sun.fill", "cloud.fill", "cloud.rain.fill", "cloud.bolt.fill"]
-        let temperatures = ["25°C", "26°C", "27°C", "28°C", "29°C"]
+        var daysDisplayed = Set<String>()
         
-        for hourOffset in 0..<5 {
-            let hour = (currentHour + hourOffset) % 24
-            let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: Date())!
-            let time = dateFormatter.string(from: date)
+        for (index, daily) in dailyWeather.enumerated() where index % 8 == 0 && daysDisplayed.count < 7 {
+            let date = Date(timeIntervalSince1970: TimeInterval(daily.dt))
+            let day = dateFormatter.string(from: date)
             
-            let view = createHourlyForecastView(time: time, iconName: icons[hourOffset], temperature: temperatures[hourOffset], isFirst: hourOffset == 0)
-            stackView.addArrangedSubview(view)
+            if !daysDisplayed.contains(day) {
+                daysDisplayed.insert(day)
+                print("Day: \(day) - \(daily.main.temp))°C - Icon: \(daily.weather.first?.icon ?? "N/A")")
+                
+                let view = createWeeklyForecastView(day: day, iconName: getWeatherIconName(for: daily.weather.first?.icon ?? "cloud.fill"), temperature: "\(Int(daily.main.temp))°C", isToday: isToday(day))
+                weeklyStackView.addArrangedSubview(view)
+            }
         }
-        
-        hourlyForecastView.addSubview(stackView)
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: hourlyForecastView.topAnchor, constant: 10),
-            stackView.leadingAnchor.constraint(equalTo: hourlyForecastView.leadingAnchor, constant: 10),
-            stackView.trailingAnchor.constraint(equalTo: hourlyForecastView.trailingAnchor, constant: -10),
-            stackView.bottomAnchor.constraint(equalTo: hourlyForecastView.bottomAnchor, constant: -10)
-        ])
-    }
-    
-    private func updateWeeklyForecast() {
-        let weeklyStackView = createWeeklyForecastStackView()
         
         weeklyForecastView.addSubview(weeklyStackView)
         weeklyStackView.translatesAutoresizingMaskIntoConstraints = false
@@ -263,6 +480,68 @@ class WeatherViewController: UIViewController {
         dateFormatter.dateFormat = "EEEE"
         let today = dateFormatter.string(from: Date())
         return today == day
+    }
+    
+    private func getWeatherIconName(for icon: String) -> String {
+        switch icon {
+        case "01d":
+            return "sun.max.fill"
+        case "01n":
+            return "moon.fill"
+        case "02d":
+            return "cloud.sun.fill"
+        case "02n":
+            return "cloud.moon.fill"
+        case "03d", "03n":
+            return "cloud.fill"
+        case "04d", "04n":
+            return "smoke.fill"
+        case "09d", "09n":
+            return "cloud.drizzle.fill"
+        case "10d":
+            return "cloud.sun.rain.fill"
+        case "10n":
+            return "cloud.moon.rain.fill"
+        case "11d", "11n":
+            return "cloud.bolt.fill"
+        case "13d", "13n":
+            return "snow"
+        case "50d", "50n":
+            return "cloud.fog.fill"
+        default:
+            return "cloud.fill"
+        }
+    }
+}
+
+class SpecialWeatherWarningParserDelegate: NSObject, XMLParserDelegate {
+    var warnings: [SpecialWeatherWarningItem] = []
+    private var currentElement = ""
+    private var currentTitle = ""
+    private var currentTmFc = ""
+    
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        currentElement = elementName
+    }
+    
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        switch currentElement {
+        case "title":
+            currentTitle += string
+        case "tmFc":
+            currentTmFc += string
+        default:
+            break
+        }
+    }
+    
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        if elementName == "item" {
+            let warning = SpecialWeatherWarningItem(title: currentTitle, tmFc: currentTmFc)
+            warnings.append(warning)
+            currentTitle = ""
+            currentTmFc = ""
+        }
     }
 }
 
@@ -285,3 +564,4 @@ extension UIColor {
         self.init(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(a) / 255)
     }
 }
+

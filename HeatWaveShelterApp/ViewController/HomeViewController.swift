@@ -1,11 +1,7 @@
 import UIKit
 import MapKit
 import CoreLocation
-
-struct Shelter {
-    let title: String
-    let address: String
-}
+import SwiftCSV
 
 class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchViewControllerDelegate, MKMapViewDelegate, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     
@@ -14,15 +10,40 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
     let locationManager = CLLocationManager()
     let geocoder = CLGeocoder()
     var collectionView: UICollectionView!
+    let kakaoApiKey = KeySet.kakaoKey.rawValue
+    var administrativeCode: String? {
+        didSet {
+            if let code = administrativeCode {
+                print("법정동 코드 업데이트: \(code)")
+            }
+        }
+    }
     
-    let shelters = [
-        Shelter(title: "쉼터1", address: "서울특별시 종로구 세종대로 110"),
-        Shelter(title: "쉼터2", address: "서울특별시 중구 남대문로 5가 63-1"),
-        Shelter(title: "쉼터3", address: "서울특별시 용산구 이태원로 29"),
-        Shelter(title: "쉼터4", address: "서울특별시 성북구 정릉로 77"),
-        Shelter(title: "쉼터5", address: "서울특별시 강남구 테헤란로 521")
+    var shelters: [Shelter] = []
+    var filteredShelters: [Shelter] = []
+    
+    let facilityTypeDictionary: [String: String] = [
+        "1": "노인시설", "2": "복지회관", "3": "마을회관", "4": "보건소",
+        "5": "주민센터", "6": "면동사모소", "7": "종교시설", "8": "금융기관",
+        "9": "정자", "10": "공원", "11": "정자,파고라", "12": "공원",
+        "13": "교량하부", "14": "나무그늘", "15": "하천둔치", "99": "기타"
     ]
-
+    
+    let moveToCurrentLocationButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("현재 위치", for: .normal)
+        button.backgroundColor = .white
+        button.setTitleColor(.black, for: .normal)
+        button.layer.cornerRadius = 5
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOpacity = 0.2
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.masksToBounds = false
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(moveToCurrentLocationTapped), for: .touchUpInside)
+        return button
+    }()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(hex: "#fafcfc")
@@ -32,7 +53,9 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         setupMapView()
         setupLocationManager()
         setupAddressButton()
+        setupMoveToCurrentLocationButton()
         setupCollectionView()
+        loadShelters()
         addShelterAnnotations()
     }
     
@@ -83,12 +106,23 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         ])
     }
     
+    private func setupMoveToCurrentLocationButton() {
+        view.addSubview(moveToCurrentLocationButton)
+        
+        NSLayoutConstraint.activate([
+            moveToCurrentLocationButton.topAnchor.constraint(equalTo: addressButton.bottomAnchor, constant: 10),
+            moveToCurrentLocationButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            moveToCurrentLocationButton.widthAnchor.constraint(equalToConstant: 80),
+            moveToCurrentLocationButton.heightAnchor.constraint(equalToConstant: 30)
+        ])
+    }
+    
     private func setupCollectionView() {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
         layout.minimumLineSpacing = 10
         layout.sectionInset = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20)
-        layout.itemSize = CGSize(width: view.frame.width - 100, height: 100)
+        layout.itemSize = CGSize(width: view.frame.width - 100, height: 200)
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.delegate = self
@@ -104,7 +138,7 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -100),
-            collectionView.heightAnchor.constraint(equalToConstant: 100)
+            collectionView.heightAnchor.constraint(equalToConstant: 200)
         ])
     }
     
@@ -114,39 +148,138 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         navigationController?.pushViewController(searchViewController, animated: true)
     }
     
-    private func addShelterAnnotations() {
-        for shelter in shelters {
-            geocodeAndAddAnnotation(address: shelter.address, title: shelter.title)
+    @objc func moveToCurrentLocationTapped() {
+        if let currentLocation = locationManager.location {
+            let adjustedCenter = CLLocationCoordinate2D(latitude: currentLocation.coordinate.latitude - 0.0015, longitude: currentLocation.coordinate.longitude)
+            let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            let region = MKCoordinateRegion(center: adjustedCenter, span: span)
+            mapView.setRegion(region, animated: true)
+            updateAddressLabel(for: currentLocation.coordinate)
+            updateNearbyShelters(for: currentLocation.coordinate)
         }
     }
     
-    private func geocodeAndAddAnnotation(address: String, title: String) {
-        geocoder.geocodeAddressString(address) { (placemarks, error) in
-            if let error = error {
-                print("주소 변환 오류: \(error)")
-                return
+    private func loadShelters() {
+        guard let csvPath = Bundle.main.path(forResource: "shelter_seoul", ofType: "csv") else { return }
+        
+        do {
+            let csv = try CSV<Named>(url: URL(fileURLWithPath: csvPath))
+            for row in csv.rows {
+                if let title = row["쉼터명칭"],
+                   let address = row["도로명주소"],
+                   let latString = row["위도"], let latitude = Double(latString),
+                   let lonString = row["경도"], let longitude = Double(lonString),
+                   let type = row["시설유형"],
+                   let capacityString = row["이용가능인원"], let capacity = Int(capacityString),
+                   let nightOpenString = row["야간개방"],
+                   let holidayOpenString = row["휴일개방"],
+                   let lodgingAvailableString = row["숙박가능여부"],
+                   let notes = row["비고"] {
+                    
+                    let nightOpen = nightOpenString == "Y"
+                    let holidayOpen = holidayOpenString == "Y"
+                    let lodgingAvailable = lodgingAvailableString == "Y"
+                    
+                    shelters.append(Shelter(title: title, address: address, latitude: latitude, longitude: longitude, type: type, capacity: capacity, nightOpen: nightOpen, holidayOpen: holidayOpen, lodgingAvailable: lodgingAvailable, notes: notes))
+                }
             }
-            
-            if let placemark = placemarks?.first, let location = placemark.location {
+        } catch {
+            print("CSV 파일을 로드하는 데 실패했습니다: \(error)")
+        }
+    }
+    
+    private func addShelterAnnotations() {
+        DispatchQueue.main.async {
+            for shelter in self.shelters {
                 let annotation = MKPointAnnotation()
-                annotation.coordinate = location.coordinate
-                annotation.title = title
+                annotation.coordinate = CLLocationCoordinate2D(latitude: shelter.latitude, longitude: shelter.longitude)
+                annotation.title = shelter.title
                 self.mapView.addAnnotation(annotation)
             }
         }
     }
     
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        if let location = locations.first {
-            let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-            let region = MKCoordinateRegion(center: location.coordinate, span: span)
-            mapView.setRegion(region, animated: true)
-            
-            geocoder.reverseGeocodeLocation(location) { (placemarks, error) in
-                if let placemark = placemarks?.first {
-                    let address = "\(placemark.administrativeArea ?? "") \(placemark.locality ?? ""), \(placemark.subLocality ?? ""), \(placemark.thoroughfare ?? "") \(placemark.subThoroughfare ?? "")"
+    private func updateAddressLabel(for coordinate: CLLocationCoordinate2D) {
+        geocoder.reverseGeocodeLocation(CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) { (placemarks, error) in
+            if let placemark = placemarks?.first {
+                let address = "\(placemark.administrativeArea ?? "") \(placemark.locality ?? ""), \(placemark.subLocality ?? ""), \(placemark.thoroughfare ?? "") \(placemark.subThoroughfare ?? "")"
+                DispatchQueue.main.async {
                     self.addressButton.setTitle(address, for: .normal)
                 }
+            }
+        }
+    }
+    
+    private func updateNearbyShelters(for coordinate: CLLocationCoordinate2D) {
+        let userLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let nearbyShelters = shelters.filter { shelter in
+            let shelterLocation = CLLocation(latitude: shelter.latitude, longitude: shelter.longitude)
+            return shelterLocation.distance(from: userLocation) <= 600
+        }
+        filteredShelters = nearbyShelters.sorted {
+            let location1 = CLLocation(latitude: $0.latitude, longitude: $0.longitude)
+            let location2 = CLLocation(latitude: $1.latitude, longitude: $1.longitude)
+            return userLocation.distance(from: location1) < userLocation.distance(from: location2)
+        }
+        DispatchQueue.main.async {
+            self.collectionView.reloadData()
+        }
+    }
+    
+    func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+        let center = mapView.centerCoordinate
+        updateAddressLabel(for: center)
+        updateNearbyShelters(for: center)
+    }
+    
+    private func getAdministrativeCode(latitude: CLLocationDegrees, longitude: CLLocationDegrees, completion: @escaping (String?) -> Void) {
+        let urlStr = "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=\(longitude)&y=\(latitude)"
+        guard let url = URL(string: urlStr) else {
+            completion(nil)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("KakaoAK \(kakaoApiKey)", forHTTPHeaderField: "Authorization")
+        
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Network error: \(String(describing: error))")
+                completion(nil)
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let documents = json["documents"] as? [[String: Any]],
+                   let firstDocument = documents.first,
+                   let code = firstDocument["code"] as? String {
+                    completion(code)
+                } else {
+                    completion(nil)
+                }
+            } catch {
+                print("JSON parsing error: \(error)")
+                completion(nil)
+            }
+        }
+        
+        task.resume()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.first {
+            let adjustedCenter = CLLocationCoordinate2D(latitude: location.coordinate.latitude - 0.0015, longitude: location.coordinate.longitude)
+            let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            let region = MKCoordinateRegion(center: adjustedCenter, span: span)
+            mapView.setRegion(region, animated: true)
+            
+            getAdministrativeCode(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude) { [weak self] bCode in
+                guard let self = self else { return }
+                self.administrativeCode = bCode
+                
+                self.updateAddressLabel(for: location.coordinate)
+                self.updateNearbyShelters(for: location.coordinate)
             }
         }
     }
@@ -166,10 +299,14 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         mapView.addAnnotation(annotation)
         
         self.addressButton.setTitle(name, for: .normal)
+        self.updateNearbyShelters(for: location)
     }
     
     func didSelectFavoriteShelter(_ shelter: Shelter) {
-        geocodeAndAddAnnotation(address: shelter.address, title: shelter.title)
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = CLLocationCoordinate2D(latitude: shelter.latitude, longitude: shelter.longitude)
+        annotation.title = shelter.title
+        mapView.addAnnotation(annotation)
     }
     
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
@@ -192,17 +329,23 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
     }
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return shelters.count
+        return filteredShelters.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "CardCell", for: indexPath) as! CardCell
-        let shelter = shelters[indexPath.item]
-        cell.configure(with: shelter.title, address: shelter.address)
+        let shelter = filteredShelters[indexPath.item]
+        cell.configure(with: shelter, typeDictionary: facilityTypeDictionary)
         return cell
     }
     
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let selectedShelter = filteredShelters[indexPath.item]
+        moveToShelterLocation(shelter: selectedShelter)
+        collectionView.scrollToItem(at: IndexPath(item: 0, section: 0), at: .left, animated: true)
+    }
+    
+    func collectionView(_ collectionView: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
         let sideInset = CGFloat(20)
         return UIEdgeInsets(top: 0, left: sideInset, bottom: 0, right: sideInset)
     }
@@ -218,11 +361,29 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         offset = CGPoint(x: roundedIndex * cellWidthIncludingSpacing - scrollView.contentInset.left, y: scrollView.contentInset.top)
         targetContentOffset.pointee = offset
     }
+    
+    private func moveToShelterLocation(shelter: Shelter) {
+        let coordinate = CLLocationCoordinate2D(latitude: shelter.latitude, longitude: shelter.longitude)
+        let span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        let region = MKCoordinateRegion(center: coordinate, span: span)
+        mapView.setRegion(region, animated: true)
+        
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = coordinate
+        annotation.title = shelter.title
+        mapView.addAnnotation(annotation)
+    }
 }
 
 class CardCell: UICollectionViewCell {
     private let titleLabel = UILabel()
     private let addressLabel = UILabel()
+    private let typeLabel = UILabel()
+    private let capacityLabel = UILabel()
+    private let nightOpenLabel = UILabel()
+    private let holidayOpenLabel = UILabel()
+    private let lodgingAvailableLabel = UILabel()
+    private let notesLabel = UILabel()
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -249,6 +410,36 @@ class CardCell: UICollectionViewCell {
         addressLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(addressLabel)
         
+        typeLabel.font = UIFont.systemFont(ofSize: 14)
+        typeLabel.textColor = .gray
+        typeLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(typeLabel)
+        
+        capacityLabel.font = UIFont.systemFont(ofSize: 14)
+        capacityLabel.textColor = .gray
+        capacityLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(capacityLabel)
+        
+        nightOpenLabel.font = UIFont.systemFont(ofSize: 14)
+        nightOpenLabel.textColor = .gray
+        nightOpenLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(nightOpenLabel)
+        
+        holidayOpenLabel.font = UIFont.systemFont(ofSize: 14)
+        holidayOpenLabel.textColor = .gray
+        holidayOpenLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(holidayOpenLabel)
+        
+        lodgingAvailableLabel.font = UIFont.systemFont(ofSize: 14)
+        lodgingAvailableLabel.textColor = .gray
+        lodgingAvailableLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(lodgingAvailableLabel)
+        
+        notesLabel.font = UIFont.systemFont(ofSize: 14)
+        notesLabel.textColor = .gray
+        notesLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(notesLabel)
+        
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
             titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
@@ -257,13 +448,42 @@ class CardCell: UICollectionViewCell {
             addressLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 5),
             addressLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             addressLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            addressLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30)
+            
+            typeLabel.topAnchor.constraint(equalTo: addressLabel.bottomAnchor, constant: 5),
+            typeLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            typeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            capacityLabel.topAnchor.constraint(equalTo: typeLabel.bottomAnchor, constant: 5),
+            capacityLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            capacityLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            nightOpenLabel.topAnchor.constraint(equalTo: capacityLabel.bottomAnchor, constant: 5),
+            nightOpenLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            nightOpenLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            holidayOpenLabel.topAnchor.constraint(equalTo: nightOpenLabel.bottomAnchor, constant: 5),
+            holidayOpenLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            holidayOpenLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            lodgingAvailableLabel.topAnchor.constraint(equalTo: holidayOpenLabel.bottomAnchor, constant: 5),
+            lodgingAvailableLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            lodgingAvailableLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            notesLabel.topAnchor.constraint(equalTo: lodgingAvailableLabel.bottomAnchor, constant: 5),
+            notesLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            notesLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            notesLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
         ])
     }
     
-    func configure(with title: String, address: String) {
-        titleLabel.text = title
-        addressLabel.text = address
+    func configure(with shelter: Shelter, typeDictionary: [String: String]) {
+        titleLabel.text = shelter.title
+        addressLabel.text = shelter.address
+        typeLabel.text = "유형: \(typeDictionary[shelter.type] ?? shelter.type)"
+        capacityLabel.text = "이용가능인원: \(shelter.capacity)명"
+        nightOpenLabel.text = "야간개방: \(shelter.nightOpen ? "개방" : "안 함")"
+        holidayOpenLabel.text = "휴일개방: \(shelter.holidayOpen ? "개방" : "안 함")"
+        lodgingAvailableLabel.text = "숙박가능여부: \(shelter.lodgingAvailable ? "가능" : "불가능")"
     }
 }
 

@@ -1,10 +1,3 @@
-//
-//  SearchViewController.swift
-//  HeatWaveShelterApp
-//
-//  Created by 나은정 on 6/11/24.
-//
-
 import UIKit
 import MapKit
 
@@ -54,7 +47,6 @@ class SearchViewController: UIViewController, UISearchBarDelegate, UITableViewDe
         ])
     }
     
-    // UISearchBarDelegate 메서드
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         performSearch(query: searchText)
     }
@@ -62,7 +54,7 @@ class SearchViewController: UIViewController, UISearchBarDelegate, UITableViewDe
     func performSearch(query: String) {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
-        request.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780), span: MKCoordinateSpan(latitudeDelta: 1.0, longitudeDelta: 1.0)) // 서울을 중심으로 검색
+        request.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780), span: MKCoordinateSpan(latitudeDelta: 1.0, longitudeDelta: 1.0))
         
         let search = MKLocalSearch(request: request)
         search.start { response, error in
@@ -80,7 +72,6 @@ class SearchViewController: UIViewController, UISearchBarDelegate, UITableViewDe
         }
     }
     
-    // UITableViewDataSource 메서드
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return searchResults.count
     }
@@ -93,7 +84,6 @@ class SearchViewController: UIViewController, UISearchBarDelegate, UITableViewDe
         return cell
     }
     
-    // UITableViewDelegate 메서드
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let selectedLocation = searchResults[indexPath.row].coordinate
@@ -102,3 +92,4 @@ class SearchViewController: UIViewController, UISearchBarDelegate, UITableViewDe
         navigationController?.popViewController(animated: true)
     }
 }
+
