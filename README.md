@@ -39,5 +39,4 @@
 
 ## 발표 영상
 
-[![영상](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/9764c37c-9da8-42b0-ba79-82534ab3d8d4)
-)](https://youtu.be/pAmaPTwCp2U?si=p_AeV283rrI-1SuU)
+[![영상](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/9764c37c-9da8-42b0-ba79-82534ab3d8d4)](https://youtu.be/pAmaPTwCp2U?si=p_AeV283rrI-1SuU)
