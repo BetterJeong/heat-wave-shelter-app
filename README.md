@@ -23,8 +23,8 @@
 
 ### 🌦️ 날씨 화면
 
-|![날씨화면](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/be586d92-3a2c-4935-9710-8780265f23ce) | <img width="195" alt="image" src="https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/e6d4cfbf-ada9-44d4-9db3-83af4076ef65"> |
-|---|---|
+|<img width="195" alt="image" src="https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/121909aa-8f19-490e-a05c-50caad1a31fd">|
+|---|
 
 - **폭염 주의보 현황 확인**: 현재 폭염 주의보 발령 상태를 보여줍니다.
 - **현재 날씨 및 예보**: 현재 날씨와 앞으로의 시간별, 주간 날씨를 확인할 수 있습니다.
