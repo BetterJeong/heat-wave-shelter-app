@@ -21,10 +21,9 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
     
     var shelters: [Shelter] = []
     var filteredShelters: [Shelter] = []
-    
     let facilityTypeDictionary: [String: String] = [
         "1": "노인시설", "2": "복지회관", "3": "마을회관", "4": "보건소",
-        "5": "주민센터", "6": "면동사모소", "7": "종교시설", "8": "금융기관",
+        "5": "주민센터", "6": "면동사무소", "7": "종교시설", "8": "금융기관",
         "9": "정자", "10": "공원", "11": "정자,파고라", "12": "공원",
         "13": "교량하부", "14": "나무그늘", "15": "하천둔치", "99": "기타"
     ]
@@ -202,14 +201,32 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
     private func updateAddressLabel(for coordinate: CLLocationCoordinate2D) {
         geocoder.reverseGeocodeLocation(CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) { (placemarks, error) in
             if let placemark = placemarks?.first {
-                let address = "\(placemark.administrativeArea ?? "") \(placemark.locality ?? ""), \(placemark.subLocality ?? ""), \(placemark.thoroughfare ?? "") \(placemark.subThoroughfare ?? "")"
+                var addressComponents: [String] = []
+
+                if let administrativeArea = placemark.administrativeArea {
+                    addressComponents.append(administrativeArea)
+                }
+                if let locality = placemark.locality, !addressComponents.contains(locality) {
+                    addressComponents.append(locality)
+                }
+                if let subLocality = placemark.subLocality, !addressComponents.contains(subLocality) {
+                    addressComponents.append(subLocality)
+                }
+                if let thoroughfare = placemark.thoroughfare, !addressComponents.contains(thoroughfare) {
+                    addressComponents.append(thoroughfare)
+                }
+                if let subThoroughfare = placemark.subThoroughfare, !addressComponents.contains(subThoroughfare) {
+                    addressComponents.append(subThoroughfare)
+                }
+
+                let address = addressComponents.joined(separator: " ")
                 DispatchQueue.main.async {
                     self.addressButton.setTitle(address, for: .normal)
                 }
             }
         }
     }
-    
+
     private func updateNearbyShelters(for coordinate: CLLocationCoordinate2D) {
         let userLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         let nearbyShelters = shelters.filter { shelter in
@@ -301,14 +318,7 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         self.addressButton.setTitle(name, for: .normal)
         self.updateNearbyShelters(for: location)
     }
-    
-    func didSelectFavoriteShelter(_ shelter: Shelter) {
-        let annotation = MKPointAnnotation()
-        annotation.coordinate = CLLocationCoordinate2D(latitude: shelter.latitude, longitude: shelter.longitude)
-        annotation.title = shelter.title
-        mapView.addAnnotation(annotation)
-    }
-    
+
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         if annotation is MKUserLocation {
             return nil
@@ -320,14 +330,21 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         if annotationView == nil {
             annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
             annotationView?.canShowCallout = true
-            annotationView?.markerTintColor = .blue
+            configureAnnotationView(annotationView)
         } else {
             annotationView?.annotation = annotation
+            configureAnnotationView(annotationView)
         }
         
         return annotationView
     }
     
+    private func configureAnnotationView(_ annotationView: MKMarkerAnnotationView?) {
+        annotationView?.markerTintColor = UIColor(red: 30/255, green: 136/255, blue: 229/255, alpha: 1.0)
+        annotationView?.glyphText = ""
+        annotationView?.layer.shadowOpacity = 0
+    }
+
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return filteredShelters.count
     }
@@ -372,6 +389,10 @@ class HomeViewController: UIViewController, CLLocationManagerDelegate, SearchVie
         annotation.coordinate = coordinate
         annotation.title = shelter.title
         mapView.addAnnotation(annotation)
+        
+        if let annotationView = mapView.view(for: annotation) as? MKMarkerAnnotationView {
+            configureAnnotationView(annotationView)
+        }
     }
 }
 
@@ -484,6 +505,7 @@ class CardCell: UICollectionViewCell {
         nightOpenLabel.text = "야간개방: \(shelter.nightOpen ? "개방" : "안 함")"
         holidayOpenLabel.text = "휴일개방: \(shelter.holidayOpen ? "개방" : "안 함")"
         lodgingAvailableLabel.text = "숙박가능여부: \(shelter.lodgingAvailable ? "가능" : "불가능")"
+        notesLabel.text = shelter.notes
     }
 }
 
