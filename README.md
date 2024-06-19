@@ -36,3 +36,8 @@
 
 - **무더위 쉼터 설명**: 무더위 쉼터에 대한 설명을 제공합니다.
 - **제보하기 기능**: 사용자들이 새로운 쉼터 정보를 제보하여 데이터를 업데이트할 수 있습니다.
+
+## 발표 영상
+
+[![영상](![IOS 기말 프로젝트-001](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/9764c37c-9da8-42b0-ba79-82534ab3d8d4)
+)](https://youtu.be/pAmaPTwCp2U?si=p_AeV283rrI-1SuU)
