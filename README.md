@@ -1,6 +1,5 @@
 # 🌞 無더위
 
-| 화면 | 화면2 | 화면3 |
 | --- | --- | --- |
 | ![론쳐](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/6121eca9-adf8-4b24-a372-468079fa3358) | ![홈화면2](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/957914b4-ceee-4ff1-bc6f-dd33b39d4e37) | ![홈화면3](https://github.com/BetterJeong/heat-wave-shelter-app/assets/83108398/c66cbe9e-e2c6-4b5f-ae90-3f6232b68a70) |
 
